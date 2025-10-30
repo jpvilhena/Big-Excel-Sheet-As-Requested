@@ -16,44 +16,16 @@ def connect_mysql(server,database,username,password):
     cnxn = pyodbc.connect(conn_str)
     print(f"✅ Connected successfully to database '{database}' on '{server}'")
     return cnxn
-
-
-def get_tables_rows(engine, table_name: str, year: int = 2025) -> pd.DataFrame:
-    """
-    Fetch rows from a table using an existing engine.
-    """
-    if engine is None:
-        print("❌ No valid database connection provided.")
-        return pd.DataFrame()
-        
-    # Checking if the table has the need to be filtered by year
-    if table_name in ["DimServico", "DimUnidade", "DimSalasAtendimento", "DimPerfil"]:
-        try:
-            query = f"SELECT * FROM {table_name}"
-            df = pd.read_sql(query, engine)
-            print(f"✅ Retrieved {len(df)} rows from table '{table_name}'")
-            return df
-        except Exception as e:
-            print(f"❌ Error fetching data from '{table_name}': {e}")
-            return pd.DataFrame()
-    
-    try:
-        query = f"SELECT top 10 * FROM {table_name} WHERE UltimaAtualizacaoRegistro >= '{year}-01-01'"
-        df = pd.read_sql(query, engine)
-        print(f"✅ Retrieved {len(df)} rows from table '{table_name}'")
-        return df
-    except Exception as e:
-        print(f"❌ Error fetching data from '{table_name}': {e}")
-        return pd.DataFrame()
     
 
-def execute_sql_file(connection, sql_file_path: str) -> pd.DataFrame:
+def execute_sql_file(connection, sql_file_path: str, **params) -> pd.DataFrame:
     """
     Execute a SQL query from a .sql file using a pyodbc connection.
 
     Args:
         connection: Active pyodbc connection.
         sql_file_path (str): Path to the .sql file.
+        params: the year we want to replace in .sql files
 
     Returns:
         pd.DataFrame: Query result as a DataFrame.
@@ -66,6 +38,9 @@ def execute_sql_file(connection, sql_file_path: str) -> pd.DataFrame:
         # Read SQL file
         with open(sql_file_path, "r", encoding="utf-8") as f:
             query = f.read().strip()
+
+        # Replace ano in queries with a year
+        query = query.format(**params)
 
         # Run query
         df = pd.read_sql(query, connection)

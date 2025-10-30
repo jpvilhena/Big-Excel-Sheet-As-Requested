@@ -1,20 +1,16 @@
 import os
-from conectionDW import connect_mysql, get_tables_rows, execute_sql_file
+from conectionDW import connect_mysql, execute_sql_file
 from save_to_excel import save_multiple_dataframes_to_excel
 import streamlit as st
 import io
 
 
-# We decide what tables will be in this dict, the keys are the tables and their dataframes will be the values
-Tables = {
+# We take the sql files that will be read here, everything within the folder Integracoes
+SQL_files1 = {}
+for entry in os.listdir("Integracoes"):
+    query_path = (os.path.join("Integracoes",entry))
+    SQL_files1.update({entry:query_path})
 
-}
-
-
-# We decide the sql files that will be read here, same logic as above
-SQL_files = {
-
-}
 
 # ----------------------------
 # Streamlit UI
@@ -28,9 +24,7 @@ with st.sidebar:
     database = st.text_input("Database", value=os.getenv("Banco", ""))
     username = st.text_input("Username", value=os.getenv("Usuario", ""))
     password = st.text_input("Password", value=os.getenv("Senha", ""), type="password")
-    year = st.number_input("Min year", min_value=2022, max_value=2025, value=2025)
 
-get_tables = st.button("Get Tables")
 run_queries = st.button("Run Queries")
 engine = None
 
@@ -38,6 +32,7 @@ engine = None
 def start_engine():
     global engine
     st.write("Connecting to database...")
+    # Getting a connection to the DW by making an engine
     try:
         engine = connect_mysql(
             username=username,
@@ -51,54 +46,27 @@ def start_engine():
         st.stop()
 
 
-if get_tables:
+if run_queries:
     # Check if engine has been set
     if engine == None:
         start_engine()
 
-    # Containers for progress and results
-    progress = st.progress(0)
-    dfs = {}
-
-    # Iterate over each key and get the rows from their tables using i for the progress bar
-    st.subheader("📋 Fetching tables...")
-    for i, t in enumerate(Tables.keys()):
-        try:
-            Tables[t] = get_tables_rows(engine, t, year=year)
-            st.write(f"✅ {t} loaded ({len(Tables[t])} rows)")
-        except Exception as e:
-            st.warning(f"⚠️ Error loading {t}: {e}")
-        progress.progress((i + 1) / len(Tables))
-
-    # Save first Excel file
-    st.write("💾 Creating Excel for tables...")
-    buf1 = io.BytesIO()
-    save_multiple_dataframes_to_excel(Tables, buf1)
-    buf1.seek(0)
-
-    st.download_button(
-        label="⬇️ Download Tables Excel",
-        data=buf1,
-        file_name="Tabelas_BI_Vendas.xlsx",
-        mime="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-    )
-
-if run_queries:
-    # Check if engine has been set
-    if engine == None:
-        start_engine(engine)
-
     # Same logic as above but now with the queries used in the BI
     st.subheader("🧮 Executing SQL files...")
-    # Dict to recieve dataframes from sql querries ran below
+    
+    # Dict to recieve dataframes from sql querries run below and Container for progress
     dfs = {}
-    for i, (name, path) in enumerate(SQL_files.items()):
+    progress = st.progress(0)
+    
+    for i, (name, path) in enumerate(SQL_files1.items()):
         try:
-            dfs[name] = execute_sql_file(engine, path)
+            print(name)
+            print(path)
+            dfs[name] = execute_sql_file(engine, path, year=2025)
             st.write(f"✅ {name} ({path}) executed successfully")
         except Exception as e:
             st.warning(f"⚠️ Error executing {name}: {e}")
-        progress.progress((i + 1) / len(SQL_files))
+        progress.progress((i + 1) / len(SQL_files1))
     
     # Save second Excel file
     st.write("💾 Creating Excel for SQL results...")
